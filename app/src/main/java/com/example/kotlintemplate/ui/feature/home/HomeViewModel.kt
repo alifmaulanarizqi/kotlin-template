@@ -1,7 +1,10 @@
 package com.example.kotlintemplate.ui.feature.home
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.kotlintemplate.core.common.UiState
+import com.example.kotlintemplate.domain.model.Sample
 import com.example.kotlintemplate.domain.usecase.SampleUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
@@ -12,7 +15,7 @@ class HomeViewModel @Inject constructor(
     private val sampleUseCase: SampleUseCase
 ) : ViewModel() {
 
-    var state = androidx.compose.runtime.mutableStateOf(HomeState())
+    var state = mutableStateOf<UiState<List<Sample>>>(UiState.Idle)
         private set
 
     init {
@@ -21,20 +24,14 @@ class HomeViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
-            state.value = state.value.copy(loading = true, error = null)
+            state.value = UiState.Loading
 
             runCatching { sampleUseCase() }
-                .onSuccess { samples ->
-                    state.value = state.value.copy(
-                        loading = false,
-                        samples = samples
-                    )
+                .onSuccess { data ->
+                    state.value = UiState.Success(data)
                 }
                 .onFailure { e ->
-                    state.value = state.value.copy(
-                        loading = false,
-                        error = e.message ?: "Unknown error"
-                    )
+                    state.value = UiState.Error(e.message ?: "Unknown error")
                 }
         }
     }
