@@ -39,6 +39,34 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    flavorDimensions += "env"
+
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "KotlinTemplate Dev")
+            buildConfigField("String", "BASE_URL", "\"https://69423f65686bc3ca8169046c.mockapi.io/api/v1/\"")
+        }
+
+        create("staging") {
+            dimension = "env"
+            applicationIdSuffix = ".stg"
+            versionNameSuffix = "-stg"
+            resValue("string", "app_name", "KotlinTemplate Staging")
+            buildConfigField("String", "BASE_URL", "\"https://69423f65686bc3ca8169046c.mockapi.io/api/v1/\"")
+        }
+
+        create("production") {
+            dimension = "env"
+            // biasanya tanpa suffix biar app id final bersih
+            resValue("string", "app_name", "KotlinTemplate")
+            buildConfigField("String", "BASE_URL", "\"https://69423f65686bc3ca8169046c.mockapi.io/api/v1/\"")
+        }
     }
 }
 

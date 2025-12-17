@@ -1,5 +1,6 @@
 package com.example.kotlintemplate.di
 
+import com.example.kotlintemplate.BuildConfig
 import com.example.kotlintemplate.data.remote.api.SampleApi
 import dagger.Module
 import dagger.Provides
@@ -17,7 +18,7 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(): Retrofit =
         Retrofit.Builder()
-            .baseUrl("https://69423f65686bc3ca8169046c.mockapi.io/api/v1/")
+            .baseUrl(BuildConfig.BASE_URL)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
