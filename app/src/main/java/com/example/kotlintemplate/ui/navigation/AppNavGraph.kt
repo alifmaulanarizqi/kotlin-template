@@ -10,7 +10,7 @@ import com.example.kotlintemplate.ui.feature.home.HomeRoute
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
-    startDestination: String = "web"
+    startDestination: String = Routes.SCANQR
 ) {
     NavHost(
         navController = navController,
@@ -19,7 +19,7 @@ fun AppNavGraph(
 //        composable(Routes.HOME) {
 //            HomeRoute()
 //      }
-        composable("web") {
+        composable(Routes.SCANQR) {
             WebScreen(
                 url = "http://192.168.1.6:3000",
                 allowedHost = "192.168.1.6"

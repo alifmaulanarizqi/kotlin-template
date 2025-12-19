@@ -6,6 +6,7 @@ import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import com.example.kotlintemplate.ui.feature.scan.ScanCoordinator
+import timber.log.Timber
 
 class AndroidBridge(
     private val webView: WebView,
@@ -30,5 +31,10 @@ class AndroidBridge(
         val url = webView.url ?: return false
         val host = Uri.parse(url).host ?: return false
         return host == allowedHost
+    }
+
+    @android.webkit.JavascriptInterface
+    fun onMessage(json: String) {
+        println("JS_TO_KOTLIN: $json")
     }
 }
