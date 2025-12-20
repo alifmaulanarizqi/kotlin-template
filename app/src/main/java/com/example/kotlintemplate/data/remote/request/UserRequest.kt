@@ -1,5 +1,9 @@
 package com.example.kotlintemplate.data.remote.request
 
 data class UserRequest(
-    val name: String,
+    val names: List<NameItemRequest>,
+)
+
+data class NameItemRequest(
+    val name: String
 )

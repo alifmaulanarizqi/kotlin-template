@@ -7,5 +7,5 @@ import javax.inject.Inject
 class UserRemoteDataSource @Inject constructor(
     private val api: UserApi
 ) {
-    suspend fun saveUsers(request: List<UserRequest>) = api.saveUsers(request)
+    suspend fun saveUsers(request: UserRequest) = api.saveUsers(request)
 }

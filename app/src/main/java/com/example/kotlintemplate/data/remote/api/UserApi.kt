@@ -12,6 +12,6 @@ interface UserApi {
 
     @POST("api/names-bulk")
     suspend fun saveUsers(
-        @Body users: List<UserRequest>
-    ): List<UserResponse>
+        @Body users: UserRequest
+    ): UserResponse
 }
