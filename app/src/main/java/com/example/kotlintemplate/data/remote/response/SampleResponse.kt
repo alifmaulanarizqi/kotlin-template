@@ -1,4 +1,4 @@
-package com.example.kotlintemplate.data.remote.dto
+package com.example.kotlintemplate.data.remote.response
 
 data class SampleResponse(
     val title: String,

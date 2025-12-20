@@ -89,7 +89,8 @@ dependencies {
 
     // Hilt (dagger/hilt)
     implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
     ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
     ksp(libs.androidx.hilt.compiler)
@@ -131,4 +132,9 @@ dependencies {
 
     // ML Kit Barcode
     implementation(libs.google.mlkit.barcode)
+
+    // room db
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 }

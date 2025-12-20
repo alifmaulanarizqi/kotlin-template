@@ -9,19 +9,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.kotlintemplate.core.common.AndroidBridge
+import com.example.kotlintemplate.core.common.BridgeEntryPoint
 import com.example.kotlintemplate.ui.feature.scan.WebViewCallbacks
 import timber.log.Timber
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun WebScreen(url: String, allowedHost: String) {
-    val context = LocalContext.current
+    val appContext = LocalContext.current.applicationContext
+    val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
+        appContext,
+        BridgeEntryPoint::class.java
+    )
 
     AndroidView(
         factory = { ctx ->
             WebView(ctx).apply {
-                WebView.setWebContentsDebuggingEnabled(true)
-
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.databaseEnabled = true
@@ -41,7 +45,7 @@ fun WebScreen(url: String, allowedHost: String) {
                     override fun onPageFinished(view: WebView, url: String) {
                         super.onPageFinished(view, url)
 
-                        // ✅ expose helper function di window biar bisa dipanggil dari Kotlin kapan pun
+                        // expose helper function di window biar bisa dipanggil dari Kotlin kapan pun
                         // (Tidak memaksa jalan otomatis; cuma menambahkan hook)
                         val js = """
                             (function() {
@@ -70,7 +74,9 @@ fun WebScreen(url: String, allowedHost: String) {
                 addJavascriptInterface(
                     AndroidBridge(
                         webView = this,
-                        allowedHost = allowedHost
+                        allowedHost = allowedHost,
+                        saveUsersLocalUseCase = entryPoint.saveScanUseCase(),
+                        getUserLocalUseCase = entryPoint.getScansUseCase(),
                     ),
                     "AndroidBridge"
                 )
@@ -94,12 +100,12 @@ fun WebScreen(url: String, allowedHost: String) {
                 webView.post { webView.evaluateJavascript(js, null) }
             }
 
-            // ✅ OPTIONAL: kalau kamu mau Kotlin yang "minta" export IndexedDB kapan pun:
+            // OPTIONAL: kalau kamu mau Kotlin yang "minta" export IndexedDB kapan pun:
             // panggil ini dari tempat lain: webView.evaluateJavascript("window.__nativeRequestIndexedDbExport && window.__nativeRequestIndexedDbExport()", null)
         }
     )
 
-    // ✅ Optional cleanup (tidak mengubah logic existing, hanya mencegah leak)
+    // Optional cleanup (tidak mengubah logic existing, hanya mencegah leak)
     DisposableEffect(Unit) {
         onDispose {
             WebViewCallbacks.sendScanResult = null

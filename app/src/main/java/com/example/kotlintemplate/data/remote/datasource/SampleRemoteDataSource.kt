@@ -1,7 +1,7 @@
 package com.example.kotlintemplate.data.remote.datasource
 
 import com.example.kotlintemplate.data.remote.api.SampleApi
-import com.example.kotlintemplate.data.remote.dto.SampleResponse
+import com.example.kotlintemplate.data.remote.response.SampleResponse
 import javax.inject.Inject
 
 class SampleRemoteDataSource @Inject constructor(

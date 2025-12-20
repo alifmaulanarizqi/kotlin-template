@@ -2,6 +2,7 @@ package com.example.kotlintemplate.di
 
 import com.example.kotlintemplate.BuildConfig
 import com.example.kotlintemplate.data.remote.api.SampleApi
+import com.example.kotlintemplate.data.remote.api.UserApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,7 +19,8 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(): Retrofit =
         Retrofit.Builder()
-            .baseUrl(BuildConfig.BASE_URL)
+//            .baseUrl(BuildConfig.BASE_URL)
+            .baseUrl("http://127.0.0.1:8000/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
@@ -28,4 +30,11 @@ object NetworkModule {
         retrofit: Retrofit
     ): SampleApi =
         retrofit.create(SampleApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideUserApi(
+        retrofit: Retrofit
+    ): UserApi =
+        retrofit.create(UserApi::class.java)
 }
