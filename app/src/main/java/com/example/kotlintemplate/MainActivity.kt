@@ -1,7 +1,10 @@
 package com.example.kotlintemplate
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
 import androidx.activity.ComponentActivity
@@ -27,6 +30,20 @@ class MainActivity : ComponentActivity() {
             WebViewCallbacks.sendScanResult?.invoke(requestId, code)
         }
 
+    private val btPermLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { result ->
+            // result: Map<String, Boolean>
+            val scanGranted =
+                result[Manifest.permission.BLUETOOTH_SCAN] == true
+            val connectGranted =
+                result[Manifest.permission.BLUETOOTH_CONNECT] == true
+
+            // optional log
+            println("waduh: \"SCAN=\$scanGranted CONNECT=\$connectGranted\"")
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -39,6 +56,8 @@ class MainActivity : ComponentActivity() {
             scanLauncher.launch(intent)
         }
 
+        ensureBluetoothPermissions()
+
         setContent {
             AppTheme {
                 val navController = rememberNavController()
@@ -47,5 +66,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun ensureBluetoothPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val need = mutableListOf<String>()
 
+            if (checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                need += android.Manifest.permission.BLUETOOTH_SCAN
+            }
+
+            if (checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                need += android.Manifest.permission.BLUETOOTH_CONNECT
+            }
+
+            if (need.isNotEmpty()) {
+                btPermLauncher.launch(need.toTypedArray())
+            }
+        }
+    }
 }

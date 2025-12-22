@@ -26,6 +26,7 @@ import androidx.core.net.toUri
 import androidx.work.BackoffPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import org.json.JSONArray
 
 class AndroidBridge(
     private val appContext: Context,
@@ -99,6 +100,84 @@ class AndroidBridge(
                 }
             }
         }
+    }
+
+    private fun sendToJs(requestId: String, type: String, ok: Boolean, extra: (JSONObject.() -> Unit)? = null) {
+        val data = JSONObject().apply {
+            put("ok", ok)
+            extra?.invoke(this)
+        }
+        val payload = JSONObject().apply {
+            put("requestId", requestId)
+            put("type", type)
+            put("data", data)
+        }
+        val script = "window.__onBridgeResult && window.__onBridgeResult(${JSONObject.quote(payload.toString())});"
+        mainHandler.post { webView.evaluateJavascript(script, null) }
+    }
+
+    @JavascriptInterface
+    fun btListPaired(requestId: String) {
+        mainHandler.post {
+            if (!isTrustedPageMainThread()) return@post
+            val res = runCatching { BtPrinterClassic.listPaired(appContext).getOrThrow() }
+            if (res.isFailure) {
+                sendToJs(requestId, "BT_PAIRED_LIST", false) { put("error", res.exceptionOrNull()?.message ?: "error") }
+                return@post
+            }
+            val devices = res.getOrNull().orEmpty()
+            sendToJs(requestId, "BT_PAIRED_LIST", true) {
+                val arr = JSONArray()
+                devices.forEach { d ->
+                    arr.put(JSONObject().apply {
+                        put("name", d.name ?: "")
+                        put("mac", d.mac)
+                    })
+                }
+                put("devices", arr)
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun btConnect(requestId: String, mac: String) {
+        Thread {
+            val r = runCatching { BtPrinterClassic.connect(appContext, mac).getOrThrow() }
+            if (r.isSuccess) {
+                sendToJs(requestId, "BT_CONNECT_RESULT", true)
+            } else {
+                sendToJs(requestId, "BT_CONNECT_RESULT", false) { put("error", r.exceptionOrNull()?.message ?: "connect error") }
+            }
+        }.start()
+    }
+
+    @JavascriptInterface
+    fun btPrint(requestId: String, mac: String, base64: String) {
+        Thread {
+            val bytes = runCatching {
+                android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
+            }.getOrNull()
+
+            if (bytes == null) {
+                sendToJs(requestId, "BT_PRINT_RESULT", false) { put("error", "Invalid base64") }
+                return@Thread
+            }
+
+            val r = runCatching { BtPrinterClassic.printAndDisconnect(mac, bytes).getOrThrow() }
+            if (r.isSuccess) {
+                sendToJs(requestId, "BT_PRINT_RESULT", true)
+            } else {
+                sendToJs(requestId, "BT_PRINT_RESULT", false) { put("error", r.exceptionOrNull()?.message ?: "print error") }
+            }
+        }.start()
+    }
+
+    @JavascriptInterface
+    fun btDisconnect(requestId: String, mac: String) {
+        Thread {
+            BtPrinterClassic.disconnect(mac)
+            sendToJs(requestId, "BT_DISCONNECT_RESULT", true)
+        }.start()
     }
 
     private fun scheduleSyncWorker() {
