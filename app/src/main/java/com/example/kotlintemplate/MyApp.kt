@@ -18,38 +18,6 @@ import javax.inject.Inject
 @HiltAndroidApp
 class MyApp : Application(), Configuration.Provider {
 
-    override fun onCreate() {
-        super.onCreate()
-        // Schedule the sync worker
-        scheduleSyncWorker()
-    }
-
-    private fun scheduleSyncWorker() {
-        try {
-//            val workRequest = OneTimeWorkRequestBuilder<SyncWorker>().build()
-//            WorkManager.getInstance(this).enqueue(workRequest)
-
-            val workRequest =
-                PeriodicWorkRequestBuilder<SyncWorker>(
-                    15, TimeUnit.MINUTES
-                )
-                    .setConstraints(
-                        Constraints.Builder()
-                            .setRequiredNetworkType(NetworkType.CONNECTED)
-                            .build()
-                    )
-                    .build()
-
-            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-                "periodic_api_sync",
-                ExistingPeriodicWorkPolicy.KEEP,
-                workRequest
-            )
-        } catch (e: Exception) {
-
-        }
-    }
-
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 

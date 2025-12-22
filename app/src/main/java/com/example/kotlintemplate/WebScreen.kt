@@ -73,6 +73,7 @@ fun WebScreen(url: String, allowedHost: String) {
 
                 addJavascriptInterface(
                     AndroidBridge(
+                        appContext = ctx.applicationContext,
                         webView = this,
                         allowedHost = allowedHost,
                         saveUsersLocalUseCase = entryPoint.saveScanUseCase(),
@@ -105,7 +106,6 @@ fun WebScreen(url: String, allowedHost: String) {
         }
     )
 
-    // Optional cleanup (tidak mengubah logic existing, hanya mencegah leak)
     DisposableEffect(Unit) {
         onDispose {
             WebViewCallbacks.sendScanResult = null

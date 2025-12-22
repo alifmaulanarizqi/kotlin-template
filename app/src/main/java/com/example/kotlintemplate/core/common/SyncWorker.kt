@@ -3,6 +3,7 @@ package com.example.kotlintemplate.core.common
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.kotlintemplate.data.local.dao.UserDao
 import com.example.kotlintemplate.data.local.entity.UserEntity
@@ -24,17 +25,15 @@ class SyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            // ambil snapshot dari Room sekali saja
-            val users: List<UserEntity> = dao.observeUsers().first()
+            while (true) {
+                val users = dao.observeUsers(limit = 1)
+                if (users.isEmpty()) break
 
-            if (users.isEmpty()) return Result.success()
+                val request = UserRequest(users.map { NameItemRequest(it.name) })
 
-            // map ke request (name only)
-            val request = UserRequest(users.map { NameItemRequest(it.name) })
-
-            // POST bulk
-            if(request.names.isNotEmpty()) {
                 api.saveUsers(request)
+
+                dao.deleteByIds(users.map { it.id })
             }
 
             Result.success()

@@ -13,8 +13,9 @@ class UserLocalRepositoryImpl @Inject constructor(
     private val userDao: UserDao
 ) : UserLocalRepository {
 
-    override fun observeUsers(): Flow<List<UserLocal>> =
-        userDao.observeUsers().map { list -> list.map { it.toDomainLocal() } }
+    override suspend fun observeUsers(): List<UserLocal> {
+        return userDao.observeUsers().map { it.toDomainLocal() }
+    }
 
     override suspend fun saveUsers(userLocals: List<UserLocal>) {
         userDao.upsertAll(userLocals.map { it.toEntityLocal() })

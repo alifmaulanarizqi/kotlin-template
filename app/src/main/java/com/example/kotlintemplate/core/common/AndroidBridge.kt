@@ -1,10 +1,15 @@
 package com.example.kotlintemplate.core.common
 
-import android.net.Uri
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.example.kotlintemplate.data.local.entity.UserEntity
 import com.example.kotlintemplate.data.mapper.toDomainLocal
 import com.example.kotlintemplate.domain.usecase.GetUserLocalUseCase
@@ -16,8 +21,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.util.ArrayList
+import java.util.concurrent.TimeUnit
+import androidx.core.net.toUri
+import androidx.work.BackoffPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 
 class AndroidBridge(
+    private val appContext: Context,
     private val webView: WebView,
     private val allowedHost: String,
     // Inject usecase (pakai Hilt EntryPoint saat membuat AndroidBridge)
@@ -40,15 +51,12 @@ class AndroidBridge(
 
     private fun isTrustedPageMainThread(): Boolean {
         val url = webView.url ?: return false
-        val host = Uri.parse(url).host ?: return false
+        val host = url.toUri().host ?: return false
         return host == allowedHost
     }
 
     @JavascriptInterface
     fun onMessage(json: String) {
-        // untuk print data indexeddb nextjs
-        //  println("JS_TO_KOTLIN: $json")
-
         mainHandler.post {
             if (!isTrustedPageMainThread()) return@post
 
@@ -82,14 +90,37 @@ class AndroidBridge(
                     }
 
                     if (entities.isNotEmpty()) {
-                        println("waduhcok: ${entities.size}")
                         saveUsersLocalUseCase(entities.map { it -> it.toDomainLocal() })
+                        scheduleSyncWorker()
                     }
 
                 } catch (e: Exception) {
 
                 }
             }
+        }
+    }
+
+    private fun scheduleSyncWorker() {
+        try {
+            WorkManager.getInstance(appContext)
+                .enqueueUniqueWork(
+                    "api_sync_flush",
+                    ExistingWorkPolicy.KEEP,
+                    OneTimeWorkRequestBuilder<SyncWorker>()
+                        .setConstraints(
+                            Constraints.Builder()
+                                .setRequiredNetworkType(NetworkType.CONNECTED)
+                                .build()
+                        )
+                        .setBackoffCriteria(
+                            BackoffPolicy.EXPONENTIAL,
+                            30, TimeUnit.SECONDS
+                        )
+                        .build()
+                )
+        } catch (e: Exception) {
+
         }
     }
 }

@@ -13,6 +13,7 @@ class UserRemoteRepositoryImpl @Inject constructor(
 ) : UserRemoteRepository {
 
     override suspend fun saveUsers(users: List<UserRemote>) : UserResponse {
+        println("waduhrepository: ${users.size}")
         val nameItems : ArrayList<NameItemRequest> = ArrayList()
         users.forEach {
             nameItems.add(NameItemRequest(it.name))

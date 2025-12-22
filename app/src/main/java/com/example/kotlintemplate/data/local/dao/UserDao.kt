@@ -9,11 +9,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface UserDao {
-    @Query("SELECT * FROM users ORDER BY id ASC")
-    fun observeUsers(): Flow<List<UserEntity>>
+    @Query("SELECT * FROM users ORDER BY id ASC LIMIT (:limit)")
+    suspend fun observeUsers(limit: Int = 100): List<UserEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(users: List<UserEntity>)
+
+    @Query("DELETE FROM users WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 
     @Query("DELETE FROM users")
     suspend fun clearAll()
