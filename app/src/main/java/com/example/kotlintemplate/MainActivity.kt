@@ -1,7 +1,5 @@
 package com.example.kotlintemplate
 
-import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -11,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.navigation.compose.rememberNavController
+import com.example.kotlintemplate.notification.NotificationScheduler
 import com.example.kotlintemplate.ui.feature.scan.QrScanActivity
 import com.example.kotlintemplate.ui.feature.scan.ScanCoordinator
 import com.example.kotlintemplate.ui.feature.scan.WebViewCallbacks
@@ -35,14 +34,12 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.RequestMultiplePermissions()
         ) { result ->
             // result: Map<String, Boolean>
-            val scanGranted =
-                result[Manifest.permission.BLUETOOTH_SCAN] == true
-            val connectGranted =
-                result[Manifest.permission.BLUETOOTH_CONNECT] == true
-
-            // optional log
-            println("waduh: \"SCAN=\$scanGranted CONNECT=\$connectGranted\"")
+            val allGranted = result.all { it.value }
+            if (allGranted) {
+                android.util.Log.d("MainActivity", "Bluetooth permissions granted")
+            }
         }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +54,14 @@ class MainActivity : ComponentActivity() {
         }
 
         ensureBluetoothPermissions()
+
+        NotificationScheduler.scheduleNotification(
+            context = this,
+            hour = 16,
+            minute = 3,
+            title = "Reminder",
+            message = "Meeting dimulai"
+        )
 
         setContent {
             AppTheme {
