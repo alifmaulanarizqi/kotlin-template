@@ -51,7 +51,6 @@ class AndroidBridge(
     // Note: PrintoothBridge uses lazy initialization - akan auto-init saat pertama kali print
 
     @JavascriptInterface
-    @Suppress("unused")
     fun scanQr(requestId: String) {
         mainHandler.post {
             if (!isTrustedPageMainThread()) return@post
