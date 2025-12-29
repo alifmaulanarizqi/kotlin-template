@@ -137,4 +137,11 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+
+    // printer thermal
+    implementation("com.github.mazenrashed:Printooth:1.3.1") {
+        exclude(group = "com.android.support")
+    }
+    implementation("com.github.kenglxn.QRGen:android:2.6.0")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.2.0")
 }

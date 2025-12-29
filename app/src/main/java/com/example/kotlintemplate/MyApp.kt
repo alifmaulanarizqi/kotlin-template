@@ -11,6 +11,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.kotlintemplate.core.common.SyncWorker
+import com.mazenrashed.printooth.Printooth
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -26,4 +27,9 @@ class MyApp : Application(), Configuration.Provider {
             .setWorkerFactory(workerFactory)
             .setMinimumLoggingLevel(Log.DEBUG)
             .build()
+
+    override fun onCreate() {
+        super.onCreate()
+        Printooth.init(this)
+    }
 }

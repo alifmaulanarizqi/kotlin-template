@@ -6,15 +6,16 @@ import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.kotlintemplate.data.local.entity.UserEntity
 import com.example.kotlintemplate.data.mapper.toDomainLocal
 import com.example.kotlintemplate.domain.usecase.GetUserLocalUseCase
 import com.example.kotlintemplate.domain.usecase.SaveUsersLocalUseCase
 import com.example.kotlintemplate.ui.feature.scan.ScanCoordinator
+import com.example.kotlintemplate.ui.feature.printer.PrinterPairingCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,9 +25,6 @@ import java.util.ArrayList
 import java.util.concurrent.TimeUnit
 import androidx.core.net.toUri
 import androidx.work.BackoffPolicy
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import org.json.JSONArray
 
 class AndroidBridge(
     private val appContext: Context,
@@ -34,12 +32,26 @@ class AndroidBridge(
     private val allowedHost: String,
     // Inject usecase (pakai Hilt EntryPoint saat membuat AndroidBridge)
     private val saveUsersLocalUseCase: SaveUsersLocalUseCase,
+    @Suppress("unused")
     private val getUserLocalUseCase: GetUserLocalUseCase,
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    // Storage untuk pending print request (saat pairing)
+    private val pendingPrintRequests = mutableMapOf<String, String>() // requestId -> templateJson
+
+    init {
+        // Setup callback untuk pairing result
+        PrinterPairingCoordinator.sendPairingResult = { requestId, success, printerName, printerMac ->
+            handlePairingResult(requestId, success, printerName, printerMac)
+        }
+    }
+
+    // Note: PrintoothBridge uses lazy initialization - akan auto-init saat pertama kali print
 
     @JavascriptInterface
+    @Suppress("unused")
     fun scanQr(requestId: String) {
         mainHandler.post {
             if (!isTrustedPageMainThread()) return@post
@@ -95,8 +107,8 @@ class AndroidBridge(
                         scheduleSyncWorker()
                     }
 
-                } catch (e: Exception) {
-
+                } catch (_: Exception) {
+                    // Ignore JSON parsing errors
                 }
             }
         }
@@ -113,71 +125,114 @@ class AndroidBridge(
             put("data", data)
         }
         val script = "window.__onBridgeResult && window.__onBridgeResult(${JSONObject.quote(payload.toString())});"
-        mainHandler.post { webView.evaluateJavascript(script, null) }
+
+        // Pastikan dipanggil di main thread
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            webView.evaluateJavascript(script, null)
+        } else {
+            mainHandler.post { webView.evaluateJavascript(script, null) }
+        }
     }
 
+
+    /**
+     * Print dengan Printooth Library (support template: text, QR, raw)
+     * Jika printer belum paired, akan otomatis membuka activity pairing
+     */
     @JavascriptInterface
-    fun btListPaired(requestId: String) {
+    fun btPrintWithTemplate(requestId: String, templateJson: String) {
+        timber.log.Timber.d("🖨️ btPrintWithTemplate called with requestId: $requestId")
+        timber.log.Timber.d("📄 Template JSON: $templateJson")
+
         mainHandler.post {
             if (!isTrustedPageMainThread()) return@post
-            val res = runCatching { BtPrinterClassic.listPaired(appContext).getOrThrow() }
-            if (res.isFailure) {
-                sendToJs(requestId, "BT_PAIRED_LIST", false) { put("error", res.exceptionOrNull()?.message ?: "error") }
-                return@post
-            }
-            val devices = res.getOrNull().orEmpty()
-            sendToJs(requestId, "BT_PAIRED_LIST", true) {
-                val arr = JSONArray()
-                devices.forEach { d ->
-                    arr.put(JSONObject().apply {
-                        put("name", d.name ?: "")
-                        put("mac", d.mac)
-                    })
+
+            scope.launch {
+                // Check if Printooth has paired printer
+                val hasPaired = PrintoothBridge.hasPairedPrinter()
+                timber.log.Timber.d("🔍 Printooth hasPairedPrinter: $hasPaired")
+
+                if (!hasPaired) {
+                    timber.log.Timber.w("⚠️ No paired printer found - Launching pairing activity")
+
+                    // Simpan request untuk dieksekusi setelah pairing berhasil
+                    pendingPrintRequests[requestId] = templateJson
+
+                    // Launch pairing activity
+                    PrinterPairingCoordinator.startPrinterPairing?.invoke(requestId)
+                    return@launch
                 }
-                put("devices", arr)
+
+                timber.log.Timber.d("✅ Printer paired - Starting print process")
+                executePrint(requestId, templateJson)
             }
         }
     }
 
-    @JavascriptInterface
-    fun btConnect(requestId: String, mac: String) {
-        Thread {
-            val r = runCatching { BtPrinterClassic.connect(appContext, mac).getOrThrow() }
-            if (r.isSuccess) {
-                sendToJs(requestId, "BT_CONNECT_RESULT", true)
-            } else {
-                sendToJs(requestId, "BT_CONNECT_RESULT", false) { put("error", r.exceptionOrNull()?.message ?: "connect error") }
+    /**
+     * Execute print (extracted untuk reusability)
+     */
+    private suspend fun executePrint(requestId: String, templateJson: String) {
+        val result = PrintoothBridge.printWithTemplate(templateJson)
+
+        if (result.isSuccess) {
+            timber.log.Timber.d("✅ Print successful!")
+            sendToJs(requestId, "BT_PRINT_TEMPLATE_RESULT", true)
+        } else {
+            val errorMsg = result.exceptionOrNull()?.message ?: "Print gagal"
+            timber.log.Timber.e("❌ Print failed: $errorMsg")
+            sendToJs(requestId, "BT_PRINT_TEMPLATE_RESULT", false) {
+                put("error", errorMsg)
             }
-        }.start()
+        }
     }
 
-    @JavascriptInterface
-    fun btPrint(requestId: String, mac: String, base64: String) {
-        Thread {
-            val bytes = runCatching {
-                android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
-            }.getOrNull()
+    /**
+     * Handle hasil dari pairing activity
+     */
+    private fun handlePairingResult(
+        requestId: String,
+        success: Boolean,
+        printerName: String?,
+        printerMac: String?
+    ) {
+        timber.log.Timber.d("📱 Pairing result - success: $success, printer: $printerName ($printerMac)")
 
-            if (bytes == null) {
-                sendToJs(requestId, "BT_PRINT_RESULT", false) { put("error", "Invalid base64") }
-                return@Thread
-            }
-
-            val r = runCatching { BtPrinterClassic.printAndDisconnect(mac, bytes).getOrThrow() }
-            if (r.isSuccess) {
-                sendToJs(requestId, "BT_PRINT_RESULT", true)
+        scope.launch {
+            if (success) {
+                // Pairing berhasil - lanjutkan print
+                val templateJson = pendingPrintRequests.remove(requestId)
+                if (templateJson != null) {
+                    timber.log.Timber.d("🖨️ Resuming print after successful pairing")
+                    executePrint(requestId, templateJson)
+                } else {
+                    timber.log.Timber.w("⚠️ No pending print request found for $requestId")
+                    sendToJs(requestId, "BT_PRINT_TEMPLATE_RESULT", true) {
+                        put("message", "Printer paired successfully: $printerName")
+                    }
+                }
             } else {
-                sendToJs(requestId, "BT_PRINT_RESULT", false) { put("error", r.exceptionOrNull()?.message ?: "print error") }
+                // Pairing dibatalkan/gagal
+                pendingPrintRequests.remove(requestId)
+                timber.log.Timber.w("⚠️ Pairing cancelled or failed")
+                sendToJs(requestId, "BT_PRINT_TEMPLATE_RESULT", false) {
+                    put("error", "Pairing dibatalkan. Printer belum terpasang.")
+                }
             }
-        }.start()
+        }
     }
 
+    /**
+     * Check apakah printer sudah dipasangkan (paired) via Bluetooth Settings
+     */
     @JavascriptInterface
-    fun btDisconnect(requestId: String, mac: String) {
-        Thread {
-            BtPrinterClassic.disconnect(mac)
-            sendToJs(requestId, "BT_DISCONNECT_RESULT", true)
-        }.start()
+    fun btHasPairedPrinter(requestId: String) {
+        mainHandler.post {
+            val hasPaired = PrintoothBridge.hasPairedPrinter()
+            sendToJs(requestId, "BT_HAS_PAIRED_RESULT", true) {
+                put("hasPaired", hasPaired)
+            }
+        }
     }
 
     private fun scheduleSyncWorker() {
@@ -198,8 +253,8 @@ class AndroidBridge(
                         )
                         .build()
                 )
-        } catch (e: Exception) {
-
+        } catch (_: Exception) {
+            // Ignore WorkManager errors
         }
     }
 }

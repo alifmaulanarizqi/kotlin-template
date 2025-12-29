@@ -21,8 +21,8 @@ fun AppNavGraph(
 //      }
         composable(Routes.SCANQR) {
             WebScreen(
-                url = "http://192.168.1.6:3000",
-                allowedHost = "192.168.1.6"
+                url = "http://192.168.1.104:3000",
+                allowedHost = "192.168.1.104"
             )
         }
     }

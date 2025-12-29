@@ -9,13 +9,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.navigation.compose.rememberNavController
-import com.example.kotlintemplate.notification.NotificationScheduler
 import com.example.kotlintemplate.ui.feature.scan.QrScanActivity
 import com.example.kotlintemplate.ui.feature.scan.ScanCoordinator
 import com.example.kotlintemplate.ui.feature.scan.WebViewCallbacks
+import com.example.kotlintemplate.ui.feature.printer.PrinterPairingActivity
+import com.example.kotlintemplate.ui.feature.printer.PrinterPairingCoordinator
 import com.example.kotlintemplate.ui.navigation.AppNavGraph
 import com.example.kotlintemplate.ui.theme.AppTheme
 import dagger.hilt.android.AndroidEntryPoint
+import timber.log.Timber
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -29,17 +31,26 @@ class MainActivity : ComponentActivity() {
             WebViewCallbacks.sendScanResult?.invoke(requestId, code)
         }
 
+    private val printerPairingLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val requestId = result.data?.getStringExtra(PrinterPairingActivity.EXTRA_REQUEST_ID).orEmpty()
+            val success = result.data?.getBooleanExtra(PrinterPairingActivity.EXTRA_PAIRED_SUCCESS, false) ?: false
+            val printerName = result.data?.getStringExtra(PrinterPairingActivity.EXTRA_PRINTER_NAME)
+            val printerMac = result.data?.getStringExtra(PrinterPairingActivity.EXTRA_PRINTER_MAC)
+
+            // kirim hasil pairing ke AndroidBridge
+            PrinterPairingCoordinator.sendPairingResult?.invoke(requestId, success, printerName, printerMac)
+        }
+
     private val btPermLauncher =
         registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { result ->
-            // result: Map<String, Boolean>
             val allGranted = result.all { it.value }
             if (allGranted) {
-                android.util.Log.d("MainActivity", "Bluetooth permissions granted")
+                Timber.d("Bluetooth permissions granted")
             }
         }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,15 +64,15 @@ class MainActivity : ComponentActivity() {
             scanLauncher.launch(intent)
         }
 
+        // set startPrinterPairing untuk dipakai bridge dari WebView
+        PrinterPairingCoordinator.startPrinterPairing = { requestId ->
+            val intent = Intent(this, PrinterPairingActivity::class.java)
+                .putExtra(PrinterPairingActivity.EXTRA_REQUEST_ID, requestId)
+            printerPairingLauncher.launch(intent)
+        }
+
         ensureBluetoothPermissions()
 
-        NotificationScheduler.scheduleNotification(
-            context = this,
-            hour = 16,
-            minute = 3,
-            title = "Reminder",
-            message = "Meeting dimulai"
-        )
 
         setContent {
             AppTheme {
