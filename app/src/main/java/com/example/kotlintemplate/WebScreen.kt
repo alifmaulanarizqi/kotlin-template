@@ -41,35 +41,7 @@ fun WebScreen(url: String, allowedHost: String) {
                     }
                 }
 
-                webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView, url: String) {
-                        super.onPageFinished(view, url)
-
-                        // expose helper function di window biar bisa dipanggil dari Kotlin kapan pun
-                        // (Tidak memaksa jalan otomatis; cuma menambahkan hook)
-                        val js = """
-                            (function() {
-                              if (window.__nativeRequestIndexedDbExport) return;
-
-                              window.__nativeRequestIndexedDbExport = async function() {
-                                try {
-                                  // kamu boleh ganti function name ini sesuai yang kamu buat di Next.js
-                                  // contoh: window.exportIndexedDbToAndroid()
-                                  if (window.exportIndexedDbToAndroid) {
-                                    await window.exportIndexedDbToAndroid();
-                                    return "OK";
-                                  }
-                                  return "exportIndexedDbToAndroid_not_found";
-                                } catch (e) {
-                                  return "ERR:" + (e && e.message ? e.message : String(e));
-                                }
-                              };
-                            })();
-                        """.trimIndent()
-
-                        view.evaluateJavascript(js, null)
-                    }
-                }
+                webViewClient = WebViewClient()
 
                 addJavascriptInterface(
                     AndroidBridge(
@@ -100,9 +72,6 @@ fun WebScreen(url: String, allowedHost: String) {
                 val js = "window.__onNativeScanResult && window.__onNativeScanResult('$rid', $value);"
                 webView.post { webView.evaluateJavascript(js, null) }
             }
-
-            // OPTIONAL: kalau kamu mau Kotlin yang "minta" export IndexedDB kapan pun:
-            // panggil ini dari tempat lain: webView.evaluateJavascript("window.__nativeRequestIndexedDbExport && window.__nativeRequestIndexedDbExport()", null)
         }
     )
 

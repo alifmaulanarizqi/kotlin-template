@@ -25,6 +25,9 @@ mlkit-barcode = "17.3.0"
 room = "2.8.4"
 hiltCommon = "1.3.0"
 workRuntimeKtx = "2.11.0"
+printooth = "1.3.1"
+qrgen = "2.6.0"
+swiperefreshlayout = "1.2.0"
 
 [libraries]
 # Timber
@@ -72,6 +75,11 @@ google-mlkit-barcode = { module = "com.google.mlkit:barcode-scanning", version.r
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+
+# Printer Thermal
+printooth = { module = "com.github.mazenrashed:Printooth", version.ref = "printooth" }
+qrgen = { module = "com.github.kenglxn.QRGen:android", version.ref = "qrgen" }
+swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "swiperefreshlayout" }
 
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
